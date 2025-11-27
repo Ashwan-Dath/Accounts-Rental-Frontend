@@ -1,11 +1,19 @@
 import React from 'react'
-import { Outlet } from 'react-router-dom'
+import { Outlet, useLocation } from 'react-router-dom'
 
 // Auth pages (login/signup/forgot) should not show header/footer
 export default function AuthLayout() {
+  const { pathname } = useLocation()
+  const fullScreenRoutes = ['/login', '/signup', '/verify-otp']
+  const isFullScreen = fullScreenRoutes.includes(pathname)
+
+  if (isFullScreen) {
+    return <Outlet />
+  }
+
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
-      <div style={{ width: 420, padding: 24, border: '1px solid #eaeaea', borderRadius: 8 }}>
+    <div className="auth-layout">
+      <div className="auth-layout__panel">
         <Outlet />
       </div>
     </div>

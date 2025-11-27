@@ -1,0 +1,11 @@
+<svg width="320" height="220" viewBox="0 0 320 220" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="cardGradient1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1c9bf5" />
+      <stop offset="40%" stop-color="#2ed1f6" />
+      <stop offset="100%" stop-color="#2bd0b8" />
+    </linearGradient>
+  </defs>
+  <rect width="320" height="220" rx="18" fill="#0b1f35" />
+  <rect x="30" y="32" width="260" height="156" rx="22" fill="url(#cardGradient1)" opacity="0.9" />
+</svg>

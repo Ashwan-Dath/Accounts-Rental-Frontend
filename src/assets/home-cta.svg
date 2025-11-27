@@ -1,0 +1,12 @@
+<svg width="1200" height="200" viewBox="0 0 1200 200" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="ctaGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#1b5aff" />
+      <stop offset="50%" stop-color="#3cf2d7" />
+      <stop offset="100%" stop-color="#0c2237" />
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="200" rx="32" fill="url(#ctaGradient)" opacity="0.8" />
+  <circle cx="120" cy="100" r="120" fill="#1c6dd7" opacity="0.35" />
+  <circle cx="980" cy="40" r="120" fill="#3ef0aa" opacity="0.3" />
+</svg>
