@@ -1,17 +1,16 @@
 import React, { useCallback, useEffect, useState } from 'react'
 import { useAdminAuth } from '../../context/AuthContext'
 
-type AdminUser = {
+type AdminAd = {
   _id?: string
   id?: string
-  firstName: string
-  email: string
-  mobile?: string
-  phone?: string
-  isActive?: boolean
+  title?: string
+  price?: number
+  platform?: string | { platform: string }
+  duration?: { value?: number; unit?: string }
 }
 
-type UsersPagination = {
+type AdsPagination = {
   total: number
   page: number
   pages: number
@@ -20,15 +19,15 @@ type UsersPagination = {
 
 const ROWS_PER_PAGE = 10
 
-export default function AdminUsers() {
+export default function AdminAds() {
   const { token } = useAdminAuth()
-  const [users, setUsers] = useState<AdminUser[]>([])
+  const [ads, setAds] = useState<AdminAd[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
-  const [paginationInfo, setPaginationInfo] = useState<UsersPagination | null>(null)
+  const [paginationInfo, setPaginationInfo] = useState<AdsPagination | null>(null)
 
-  const totalRecords = paginationInfo?.total ?? users.length
+  const totalRecords = paginationInfo?.total ?? ads.length
   const totalPages =
     paginationInfo?.pages ?? Math.max(1, Math.ceil(Math.max(totalRecords, 1) / ROWS_PER_PAGE))
   const hasRecords = totalRecords > 0
@@ -36,17 +35,16 @@ export default function AdminUsers() {
   const pageLabel = hasRecords ? effectivePage : 0
   const totalPagesLabel = hasRecords ? totalPages : 0
 
-  const fetchUsers = useCallback(
+  const fetchAds = useCallback(
     async (pageParam: number = 1) => {
       setLoading(true)
       setError(null)
-      const baseUrl = 'http://localhost:5000/admin/users/all'
+      const baseUrl = 'http://localhost:5000/public/allAds'
       const authHeaders: HeadersInit = token
         ? {
             Authorization: `Bearer ${token}`,
           }
         : {}
-
       try {
         let response = await fetch(baseUrl, {
           method: 'POST',
@@ -65,11 +63,11 @@ export default function AdminUsers() {
 
         if (!response.ok) {
           const message = await response.text()
-          throw new Error(message || 'Unable to load users')
+          throw new Error(message || 'Unable to load ads')
         }
 
         const payload = await response.json()
-        console.log('Fetched users payload:', payload);
+        console.log('Fetched ads payload:', payload);
         if (payload?.success === false && payload?.message) {
           throw new Error(payload.message)
         }
@@ -78,14 +76,13 @@ export default function AdminUsers() {
           ? payload
           : Array.isArray(payload?.data)
           ? payload.data
-          : Array.isArray(payload?.users)
-          ? payload.users
+          : Array.isArray(payload?.ads)
+          ? payload.ads
           : []
-
-        setUsers(list as AdminUser[])
+        setAds(list as AdminAd[])
 
         const paginationPayload = payload?.pagination
-        const derivedPagination: UsersPagination = paginationPayload
+        const derivedPagination: AdsPagination = paginationPayload
           ? {
               total:
                 typeof paginationPayload.total === 'number'
@@ -120,9 +117,9 @@ export default function AdminUsers() {
 
         setPaginationInfo(derivedPagination)
       } catch (err) {
-        const message = err instanceof Error ? err.message : 'Unable to load users'
+        const message = err instanceof Error ? err.message : 'Unable to load ads'
         setError(message)
-        setUsers([])
+        setAds([])
         setPaginationInfo(null)
       } finally {
         setLoading(false)
@@ -132,8 +129,8 @@ export default function AdminUsers() {
   )
 
   useEffect(() => {
-    fetchUsers(currentPage)
-  }, [currentPage, fetchUsers])
+    fetchAds(currentPage)
+  }, [currentPage, fetchAds])
 
   useEffect(() => {
     if (paginationInfo && paginationInfo.pages > 0 && currentPage > paginationInfo.pages) {
@@ -141,14 +138,38 @@ export default function AdminUsers() {
     }
   }, [paginationInfo, currentPage])
 
+  // function formatPrice(value?: number) {
+  //   if (typeof value !== 'number' || Number.isNaN(value)) return '—'
+  //   return new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' }).format(value)
+  // }
+  function formatPrice(value?: number) {
+  if (typeof value !== 'number' || Number.isNaN(value)) return '—'
+  return new Intl.NumberFormat('en-IN', { 
+    style: 'currency', 
+    currency: 'INR' 
+  }).format(value)
+}
+
+
+  function formatDuration(duration?: { value?: number; unit?: string }) {
+    if (!duration || !duration.value || !duration.unit) return '—'
+    return `${duration.value} ${duration.unit}${duration.value > 1 ? 's' : ''}`
+  }
+
+  function resolvePlatformName(platform?: AdminAd['platform']) {
+    if (!platform) return '—'
+    if (typeof platform === 'string') return platform
+    return platform.platform ?? '—'
+  }
+
   return (
-    <section className="content-card admin-categories admin-users">
+    <section className="content-card admin-categories admin-ads">
       <div className="admin-categories__header">
         <div>
-          <p className="admin-dashboard__eyebrow">Directory</p>
-          <h2>Users</h2>
+          <p className="admin-dashboard__eyebrow">Marketplace</p>
+          <h2>Ads</h2>
           <p className="admin-categories__helper">
-            Keep an eye on every registered account and their activation status.
+            Review every submission with pricing, platform, and rental duration.
           </p>
         </div>
       </div>
@@ -158,16 +179,16 @@ export default function AdminUsers() {
           <thead>
             <tr>
               <th>Sl. No</th>
-              <th>Name</th>
-              <th>Email</th>
-              <th>Mobile</th>
-              <th>Status</th>
+              <th>Title</th>
+              <th>Price</th>
+              <th>Platform</th>
+              <th>Duration</th>
             </tr>
           </thead>
           <tbody>
             {loading && (
               <tr>
-                <td colSpan={5}>Loading users...</td>
+                <td colSpan={5}>Loading ads...</td>
               </tr>
             )}
             {!loading && error && (
@@ -175,28 +196,20 @@ export default function AdminUsers() {
                 <td colSpan={5}>{error}</td>
               </tr>
             )}
-            {!loading && !error && users.length === 0 && (
+            {!loading && !error && ads.length === 0 && (
               <tr>
-                <td colSpan={5}>No users found.</td>
+                <td colSpan={5}>No ads found.</td>
               </tr>
             )}
             {!loading &&
               !error &&
-              users.map((user, index) => (
-                <tr key={user._id || user.id || `${user.email}-${index}`}>
+              ads.map((ad, index) => (
+                <tr key={ad._id || ad.id || `${ad.title}-${index}`}>
                   <td>{(effectivePage - 1) * ROWS_PER_PAGE + index + 1}</td>
-                  <td>{user.firstName || '—'}</td>
-                  <td>{user.email || '—'}</td>
-                  <td>{user.mobile || user.phone || '—'}</td>
-                  <td>
-                    <span
-                      className={`admin-users__status ${
-                        user.isActive ? 'admin-users__status--active' : 'admin-users__status--inactive'
-                      }`}
-                    >
-                      {user.isActive ? 'Active' : 'Inactive'}
-                    </span>
-                  </td>
+                  <td>{ad.title || '—'}</td>
+                  <td>{formatPrice(ad.price)}</td>
+                  <td>{resolvePlatformName(ad.platform)}</td>
+                  <td>{formatDuration(ad.duration)}</td>
                 </tr>
               ))}
           </tbody>

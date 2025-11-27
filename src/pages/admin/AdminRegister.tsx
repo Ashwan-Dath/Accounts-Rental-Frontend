@@ -1,13 +1,13 @@
 import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { FiMail, FiLock } from 'react-icons/fi'
+import { FiMail, FiLock, FiUser } from 'react-icons/fi'
 import { useAdminAuth } from '../../context/AuthContext'
 import { AdminAuthShell } from './AdminAuthShell'
 
-export default function AdminLogin() {
+export default function AdminRegister() {
   const navigate = useNavigate()
-  const { login } = useAdminAuth()
-  const [form, setForm] = useState({ email: '', password: '' })
+  const { setPendingEmail } = useAdminAuth()
+  const [form, setForm] = useState({ name: '', email: '', password: '' })
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
@@ -18,39 +18,29 @@ export default function AdminLogin() {
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (submitting) return
-    if (!form.email || !form.password) {
-      setError('Enter email and password')
-      return
-    }
     setError(null)
     setSubmitting(true)
     try {
-      const response = await fetch('http://localhost:5000/admin/login', {
+      console.log("registration form data:", form);
+      const response = await fetch('http://localhost:5000/admin/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          fullName: form.name,
           email: form.email,
-          password: form.password,
+          password: form.password
         }),
       })
       if (!response.ok) {
         const message = await response.text()
-        throw new Error(message || 'Unable to login')
+        throw new Error(message || 'Unable to register admin')
       }
-      const data = await response
-        .json()
-        .catch(() => ({ name: 'Admin', token: '' }))
-        console.log("Login response data:", data);
-      const tokenFromResponse =
-        (data && (data.token)) ?? null
-      if (!tokenFromResponse) throw new Error('Login succeeded but token is missing')
-      const nameFromResponse = (data && (data.admin.fullName)) ?? 'Admin'
-      login({ name: nameFromResponse || 'Admin', token: tokenFromResponse })
-      navigate('/admin')
-    } catch (apiError) {
-      const message =
-        apiError instanceof Error ? apiError.message : 'Unexpected login error'
+      const data = await response.json()
+      console.log("registration response data:", data);
+      setPendingEmail(form.email)
+      navigate('/admin/verify-otp', { state: { email: form.email } })
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unexpected error'
       setError(message)
     } finally {
       setSubmitting(false)
@@ -59,15 +49,29 @@ export default function AdminLogin() {
 
   return (
     <AdminAuthShell
-      title="Welcome Back"
-      subtitle="Please enter your admin credentials to continue"
+      title="Create Admin Account"
+      subtitle="We will send a verification code to confirm your account"
       helper={
         <p>
-          No account? <Link to="/admin/register">Create one</Link>
+          Already registered? <Link to="/admin/login">Back to login</Link>
         </p>
       }
     >
       <form className="admin-auth__form" onSubmit={handleSubmit}>
+        <label>
+          <span>Full Name</span>
+          <div className="admin-auth__input">
+            <FiUser />
+            <input
+              name="name"
+              type="text"
+              placeholder="Alex Rivera"
+              value={form.name}
+              onChange={handleChange}
+              required
+            />
+          </div>
+        </label>
         <label>
           <span>Email Address</span>
           <div className="admin-auth__input">
@@ -96,12 +100,9 @@ export default function AdminLogin() {
             />
           </div>
         </label>
-        <div className="admin-auth__meta">
-          <Link to="/admin/forgot">Forgot password?</Link>
-        </div>
         {error && <p className="admin-auth__error">{error}</p>}
         <button type="submit" className="admin-auth__submit" disabled={submitting}>
-          {submitting ? 'Signing in...' : 'Login'}
+          {submitting ? 'Registering...' : 'Register'}
         </button>
       </form>
     </AdminAuthShell>

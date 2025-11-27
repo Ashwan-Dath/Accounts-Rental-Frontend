@@ -5,10 +5,10 @@ import { Footer } from '../components/Footer'
 
 export default function AdminLayout() {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+    <div className="admin-layout">
       <AdminHeader />
-      <main style={{ flex: 1, padding: 16 }}>
-        <div style={{ maxWidth: 1000, margin: '0 auto' }}>
+      <main className="admin-layout__main">
+        <div className="admin-layout__content page-container">
           <Outlet />
         </div>
       </main>

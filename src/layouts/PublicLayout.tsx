@@ -5,11 +5,11 @@ import { Footer } from '../components/Footer'
 
 export default function PublicLayout() {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+    <div className="public-layout">
       <Header />
-      <main style={{ flex: 1, padding: 16 }}>
-        <Outlet />
-      </main>
+          <main className="public-layout__main">
+            <Outlet />
+          </main>
       <Footer />
     </div>
   )
