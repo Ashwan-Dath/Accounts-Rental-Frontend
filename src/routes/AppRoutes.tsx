@@ -5,6 +5,7 @@ import AdminLayout from '../layouts/AdminLayout'
 import AuthLayout from '../layouts/AuthLayout'
 import Home from '../pages/Home'
 import Listing from '../pages/Listing'
+import ViewAd from '../pages/ViewAd'
 import ProfilePage from '../pages/profile/ProfilePage'
 import AdsPage from '../pages/profile/AdsPage'
 import RentalsPage from '../pages/profile/RentalsPage'
@@ -48,6 +49,7 @@ export default function AppRoutes() {
         <Route element={<PublicLayout />}>
           <Route path="/" element={<Home />} />
           <Route path="/listing" element={<Listing />} />
+          <Route path="/viewAd/:adId" element={<ViewAd />} />
           <Route path="/post-ad" element={<PostAd />} />
           <Route
             path="/profile"
