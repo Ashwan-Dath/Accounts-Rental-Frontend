@@ -1,9 +1,110 @@
-import React from 'react'
-import { Link } from 'react-router-dom'
+import React, { useEffect, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import heroImg from '../assets/home-hero.svg'
-import card1 from '../assets/home-card-1.svg'
-import card2 from '../assets/home-card-2.svg'
-import card3 from '../assets/home-card-3.svg'
+import type { PublicAd } from '../types/ad'
+import {
+  formatDuration,
+  formatPlatform,
+  formatPrice,
+  resolvePlatformImage,
+} from '../utils/adPresentation'
+
+const API_BASE_URL = import.meta.env?.VITE_API_BASE_URL ?? 'http://localhost:5000'
+
+type AdSectionKey = 'day' | 'week' | 'month' | 'year'
+
+type AdSectionConfig = {
+  key: AdSectionKey
+  heading: string
+  endpoint: string
+  responseKey?: string
+  emptyMessage: string
+}
+
+type AdSectionState = Record<
+  AdSectionKey,
+  {
+    ads: PublicAd[]
+    loading: boolean
+    error: string | null
+  }
+>
+
+const AD_SECTIONS: AdSectionConfig[] = [
+  {
+    key: 'day',
+    heading: 'Day wise Ads',
+    endpoint: '/public/dayAds',
+    responseKey: 'dayAds',
+    emptyMessage: 'No ads posted for day wise ads.',
+  },
+  {
+    key: 'week',
+    heading: 'Week wise Ads',
+    endpoint: '/public/weekAds',
+    responseKey: 'weekAds',
+    emptyMessage: 'No ads posted for week wise ads.',
+  },
+  {
+    key: 'month',
+    heading: 'Month wise Ads',
+    endpoint: '/public/monthAds',
+    responseKey: 'monthAds',
+    emptyMessage: 'No ads posted for month wise ads.',
+  },
+  {
+    key: 'year',
+    heading: 'Year wise Ads',
+    endpoint: '/public/yearAds',
+    responseKey: 'yearAds',
+    emptyMessage: 'No ads posted for year wise ads.',
+  },
+]
+
+function createInitialState(): AdSectionState {
+  return AD_SECTIONS.reduce((acc, section) => {
+    acc[section.key] = {
+      ads: [],
+      loading: true,
+      error: null,
+    }
+    return acc
+  }, {} as AdSectionState)
+}
+
+function pickAdsFromPayload(payload: unknown, responseKey?: string): PublicAd[] {
+  if (Array.isArray(payload)) {
+    return payload as PublicAd[]
+  }
+
+  if (payload && typeof payload === 'object') {
+    const record = payload as Record<string, unknown>
+    const candidates = [
+      responseKey,
+      'data',
+      'ads',
+      'items',
+      'results',
+      'list',
+      ...(responseKey ? [`${responseKey}List`] : []),
+    ].filter(Boolean) as string[]
+
+    for (const key of candidates) {
+      const value = record[key]
+      if (Array.isArray(value)) {
+        return value as PublicAd[]
+      }
+      if (value && typeof value === 'object' && !Array.isArray(value)) {
+        const nested = value as Record<string, unknown>
+        if (Array.isArray(nested.data)) {
+          return nested.data as PublicAd[]
+        }
+      }
+    }
+  }
+
+  return []
+}
 
 const categories = [
   { title: 'Desks & setups', description: 'Standing, corner, modular' },
@@ -16,80 +117,67 @@ const categories = [
   { title: 'Cables & power', description: 'USB-C, HDMI, surge' },
 ]
 
-const featured = [
-  {
-    title: 'Midnight Standing Desk',
-    description: 'Silent lift, cable tray, scratch-resistant matte surface.',
-    price: '$649',
-    button: 'Add to cart',
-    image: card1,
-  },
-  {
-    title: 'Pulse ANC Headphones',
-    description: '60-hour battery, dual mics, adaptive noise cancellation.',
-    price: '$299',
-    button: 'Add to cart',
-    image: card2,
-  },
-  {
-    title: 'Flux Wireless Dock',
-    description: '15W Mag-charge pad, dual USB-C PD, HDMI 2.1 passthrough.',
-    price: '$189',
-    button: 'Add to cart',
-    image: card3,
-  },
-  {
-    title: 'Glow Ambient Kit',
-    description: 'Magnetic light bars with adaptive color temperatures.',
-    price: '$129',
-    button: 'Add to cart',
-    image: card1,
-  },
-  {
-    title: 'Clarity 4K Webcam',
-    description: 'Glass lens, fast focus, and auto light balance.',
-    price: '$179',
-    button: 'Add to cart',
-    image: card2,
-  },
-]
-
-const exclusives = [
-  {
-    title: 'Bundle: Desk + Chair',
-    description: 'Save 12% on ergonomic bundles with same-day assembly.',
-    price: '$1,049',
-    button: 'Grab offer',
-    tone: 'secondary',
-    image: card3,
-  },
-  {
-    title: 'Accessories Trio',
-    description: 'Pick any 3 organizers or chargers & unlock free express.',
-    price: '$249',
-    button: 'Grab offer',
-    tone: 'accent',
-    image: card1,
-  },
-  {
-    title: 'Lighting Duo',
-    description: 'Desk lamp + ambient strip synced to app control.',
-    price: '$199',
-    button: 'Grab offer',
-    tone: 'secondary',
-    image: card2,
-  },
-  {
-    title: 'Remote Starter Kit',
-    description: 'Laptop stand, webcam, ANC earbuds bundled for new hires.',
-    price: '$279',
-    button: 'Grab offer',
-    tone: 'accent',
-    image: card3,
-  },
-]
-
 export default function Home() {
+  const navigate = useNavigate()
+  const [sections, setSections] = useState<AdSectionState>(createInitialState)
+
+  useEffect(() => {
+    let cancelled = false
+
+    AD_SECTIONS.forEach((section) => {
+      const run = async () => {
+        setSections((prev) => ({
+          ...prev,
+          [section.key]: {
+            ...prev[section.key],
+            loading: true,
+            error: null,
+          },
+        }))
+        try {
+          const url = section.endpoint.startsWith('http')
+            ? section.endpoint
+            : `${API_BASE_URL}${section.endpoint}`
+          const response = await fetch(url)
+          if (!response.ok) {
+            const message = await response.text()
+            throw new Error(message || 'Unable to load ads')
+          }
+          const payload = await response.json()
+          const ads = pickAdsFromPayload(payload, section.responseKey)
+          if (!cancelled) {
+            setSections((prev) => ({
+              ...prev,
+              [section.key]: {
+                ads,
+                loading: false,
+                error: null,
+              },
+            }))
+          }
+        } catch (err) {
+          if (!cancelled) {
+            const message = err instanceof Error ? err.message : 'Unable to load ads'
+            setSections((prev) => ({
+              ...prev,
+              [section.key]: {
+                ads: [],
+                loading: false,
+                error: message,
+              },
+            }))
+          }
+        }
+      }
+
+      run()
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   return (
     <div className="home-page">
       <div className="page-container">
@@ -137,49 +225,72 @@ export default function Home() {
             </div>
           </section>
 
-          <section className="home-section">
-            <div className="section-header">
-              <h3>Featured picks</h3>
-              <Link to="/listing" className="view-link">
-                View all
-              </Link>
-            </div>
-            <div className="card-grid">
-              {featured.map((product) => (
-                <article key={product.title} className="product-card">
-                  <img src={product.image} alt={product.title} />
-                  <h4>{product.title}</h4>
-                  <p>{product.description}</p>
-                  <div className="product-meta">
-                    <span className="product-price">{product.price}</span>
-                    <button>{product.button}</button>
+          {AD_SECTIONS.map((section) => {
+            const sectionState = sections[section.key]
+            return (
+              <section key={section.key} className="home-section ads-section">
+                <div className="section-header">
+                  <h3>{section.heading}</h3>
+                  <Link to="/listing" className="view-link">
+                    View all
+                  </Link>
+                </div>
+                {sectionState.loading && (
+                  <p className="ads-section__status">Loading {section.heading.toLowerCase()}...</p>
+                )}
+                {!sectionState.loading && sectionState.error && (
+                  <p className="ads-section__status ads-section__status--error">
+                    {sectionState.error}
+                  </p>
+                )}
+                {!sectionState.loading && !sectionState.error && sectionState.ads.length === 0 && (
+                  <p className="ads-section__empty">{section.emptyMessage}</p>
+                )}
+                {!sectionState.loading && !sectionState.error && sectionState.ads.length > 0 && (
+                  <div className="ads-grid">
+                    {sectionState.ads.map((ad) => {
+                      const logo = resolvePlatformImage(ad.platform)
+                      const platformLabel = formatPlatform(ad.platform)
+                      return (
+                        <article key={ad._id ?? `${section.key}-${ad.title}`} className="ad-card">
+                          <div
+                            className={`ad-card__logo${
+                              logo ? ' ad-card__logo--image' : ' ad-card__logo--placeholder'
+                            }`}
+                          >
+                            {logo ? (
+                              <img src={logo} alt={`${platformLabel} logo`} />
+                            ) : (
+                              <span>{platformLabel.slice(0, 1) || '?'}</span>
+                            )}
+                          </div>
+                          <p className="ad-card__eyebrow">{platformLabel}</p>
+                          <h4 className="ad-card__title">{ad.title || 'Untitled ad'}</h4>
+                          <p className="ad-card__text">
+                            {ad.description || 'No description provided.'}
+                          </p>
+                          <p className="ad-card__meta">
+                            Duration: {formatDuration(ad.duration)}
+                          </p>
+                          <div className="ad-card__footer">
+                            <span className="ad-card__price">{formatPrice(ad.price)}</span>
+                            <button
+                              type="button"
+                              className="ad-card__cta"
+                              disabled={!ad._id}
+                              onClick={() => ad._id && navigate(`/viewAd/${encodeURIComponent(ad._id)}`)}
+                            >
+                              View ad
+                            </button>
+                          </div>
+                        </article>
+                      )
+                    })}
                   </div>
-                </article>
-              ))}
-            </div>
-          </section>
-
-          <section className="home-section">
-            <div className="section-header">
-              <h3>Member exclusives</h3>
-              <Link to="/signup" className="view-link">
-                Join membership
-              </Link>
-            </div>
-            <div className="card-grid">
-              {exclusives.map((product) => (
-                <article key={product.title} className="product-card">
-                  <img src={product.image} alt={product.title} />
-                  <h4>{product.title}</h4>
-                  <p>{product.description}</p>
-                  <div className="product-meta">
-                    <span className="product-price">{product.price}</span>
-                    <button className={product.tone}>{product.button}</button>
-                  </div>
-                </article>
-              ))}
-            </div>
-          </section>
+                )}
+              </section>
+            )
+          })}
 
           <section className="home-cta">
             <div className="cta-content">
