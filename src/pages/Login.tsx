@@ -24,12 +24,21 @@ export default function Login() {
         body: JSON.stringify({ email: userId, password }),
       })
 
+      let data: any = {}
       if (!response.ok) {
-        const message = await response.text()
-        throw new Error(message || 'Login failed')
+        // Prefer structured error messages; fall back to plain text
+        try {
+          data = await response.json()
+        } catch {
+          const fallback = await response.text()
+          throw new Error(fallback || 'Login failed')
+        }
+        const friendlyMessage =
+          (data && (data.message || data.error || data.reason)) || 'Login failed'
+        throw new Error(friendlyMessage)
       }
 
-      const data = await response.json().catch(() => ({}))
+      data = await response.json().catch(() => ({}))
       const tokenFromResponse = (data && (data.token || data.accessToken)) || ''
       if (!tokenFromResponse) {
         throw new Error('Login succeeded but token was not returned')
@@ -55,10 +64,9 @@ export default function Login() {
       <div className="login-shell">
         <section className="login-panel login-info">
           <div className="login-pill">Welcome back</div>
-          <h1>Log in to Nextpage</h1>
+          <h1>Log into Account Rentals</h1>
           <p>
-            Access your workspace with your email and password. Need help? Use the password
-            reset flow.
+            Want to rent an account? Log in or create an account — the option is right next to you.
           </p>
           <div>
             New here?{' '}

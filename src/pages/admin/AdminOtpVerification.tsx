@@ -9,11 +9,13 @@ export default function AdminOtpVerification() {
   const navigate = useNavigate()
   const location = useLocation()
   const { login, pendingEmail } = useAdminAuth()
-  const emailFromState = (location.state as { email?: string })?.email ?? ''
+
+  const emailFromState = (location.state as { email?: string } | undefined)?.email ?? ''
   const email = pendingEmail || emailFromState
-  const [otp, setOtp] = useState(Array(OTP_LENGTH).fill(''))
+
+  const [otp, setOtp] = useState<string[]>(Array(OTP_LENGTH).fill(''))
   const [error, setError] = useState<string | null>(null)
-  const [status, setStatus] = useState('Enter the verification code we sent')
+  const [status, setStatus] = useState<string>('Enter the verification code we sent')
   const [loading, setLoading] = useState(false)
   const [resending, setResending] = useState(false)
   const inputsRef = useRef<Array<HTMLInputElement | null>>([])
@@ -29,7 +31,9 @@ export default function AdminOtpVerification() {
       copy[index] = next
       return copy
     })
-    if (next && index < OTP_LENGTH - 1) inputsRef.current[index + 1]?.focus()
+    if (next && index < OTP_LENGTH - 1) {
+      inputsRef.current[index + 1]?.focus()
+    }
   }
 
   function handleKeyDown(index: number, event: React.KeyboardEvent<HTMLInputElement>) {
@@ -50,7 +54,7 @@ export default function AdminOtpVerification() {
 
     setLoading(true)
     setError(null)
-    setStatus('Verifying…')
+    setStatus('Verifying...')
 
     try {
       const response = await fetch('http://localhost:5000/admin/verifyOtp', {
@@ -58,20 +62,32 @@ export default function AdminOtpVerification() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, otp: code }),
       })
+
       if (!response.ok) {
-        const message = await response.text()
-        throw new Error(message || 'Invalid verification code')
+        let payload: any = {}
+        try {
+          payload = await response.json()
+        } catch {
+          const message = await response.text()
+          throw new Error(message || 'Enter a valid OTP')
+        }
+        const friendly =
+          payload?.message ||
+          payload?.error ||
+          payload?.reason ||
+          (response.status === 400 ? 'Enter a valid OTP' : 'Verification failed')
+        throw new Error(friendly)
       }
+
       const result = await response.json().catch(() => ({}))
-      console.log("OTP verification response data:", result);
       const tokenFromResponse = result?.token || null
       if (!tokenFromResponse) throw new Error('Verification succeeded but token missing')
       const nameFromResponse = result?.admin?.fullName || 'Admin'
       login({ name: nameFromResponse, token: tokenFromResponse })
-      setStatus('Verified! Redirecting…')
+      setStatus('Verified! Redirecting...')
       setTimeout(() => navigate('/admin', { replace: true }), 500)
     } catch (apiError) {
-      setError(apiError instanceof Error ? apiError.message : 'Verification failed')
+      setError(apiError instanceof Error ? apiError.message : 'Enter a valid OTP')
       setStatus('Enter the verification code we sent')
     } finally {
       setLoading(false)
@@ -82,7 +98,7 @@ export default function AdminOtpVerification() {
     if (!email || resending || loading) return
     setResending(true)
     setError(null)
-    setStatus('Sending a new code…')
+    setStatus('Sending a new code...')
     try {
       const response = await fetch('http://localhost:5000/admin/resendOtp', {
         method: 'POST',
@@ -91,7 +107,7 @@ export default function AdminOtpVerification() {
       })
       if (!response.ok) {
         const message = await response.text()
-        throw new Error(message || 'Enter correct email')
+        throw new Error(message || 'Enter the correct email')
       }
       const data = await response.json().catch(() => ({}))
       const confirmation =
@@ -153,7 +169,7 @@ export default function AdminOtpVerification() {
         {error && <p className="admin-auth__error">{error}</p>}
         {!error && status && <p className="admin-auth__status">{status}</p>}
         <button type="submit" className="admin-auth__submit" disabled={loading}>
-          {loading ? 'Verifying…' : 'Verify & Continue'}
+          {loading ? 'Verifying...' : 'Verify & Continue'}
         </button>
       </form>
     </AdminAuthShell>

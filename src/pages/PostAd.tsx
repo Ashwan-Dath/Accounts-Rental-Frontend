@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { useUserAuth } from '../context/AuthContext'
 
 type PlatformOption = {
@@ -16,12 +17,21 @@ const TIME_UNITS = [
   { value: 'year', label: 'Year(s)' },
 ]
 
+const API_BASE_URL = import.meta.env?.VITE_API_BASE_URL ?? 'http://localhost:5000'
+
 export default function PostAd() {
   const { token } = useUserAuth()
+  const navigate = useNavigate()
+  const location = useLocation()
+  const adFromState = (location.state as { ad?: any } | undefined)?.ad
+  const query = useMemo(() => new URLSearchParams(location.search), [location.search])
+  const selectedAdId = useMemo(
+    () => adFromState?._id || query.get('adId') || '',
+    [adFromState?._id, query],
+  )
   const [form, setForm] = useState({
     title: '',
     description: '',
-    contactEmail: '',
     price: '',
     platformId: '',
     durationValue: '',
@@ -33,21 +43,15 @@ export default function PostAd() {
   const [platforms, setPlatforms] = useState<PlatformOption[]>([])
   const [platformLoading, setPlatformLoading] = useState(false)
   const [platformError, setPlatformError] = useState<string | null>(null)
+  const isEditing = Boolean(selectedAdId)
 
   useEffect(() => {
-    if (typeof window === 'undefined') return
-    const stored = window.localStorage.getItem('accounts:lastContactEmail')
-    if (stored) {
-      setForm((prev) => ({ ...prev, contactEmail: stored }))
-    }
-  }, [])
-
-  useEffect(() => {
+    // Pull platforms so the user can select where the ad belongs
     async function loadPlatforms() {
       setPlatformLoading(true)
       setPlatformError(null)
       try {
-        const response = await fetch('http://localhost:5000/public/categories')
+        const response = await fetch(`${API_BASE_URL}/public/categories`)
         if (!response.ok) {
           const message = await response.text()
           throw new Error(message || 'Unable to load platforms')
@@ -74,6 +78,67 @@ export default function PostAd() {
     loadPlatforms()
   }, [])
 
+  useEffect(() => {
+    if (!selectedAdId || !token) return
+
+    let ignore = false
+    // Prefill the form when editing an existing ad
+    async function loadAdForEdit() {
+      setError(null)
+      try {
+        // Use state if available to avoid extra network
+        if (adFromState && !ignore) {
+          const ad = adFromState
+          setForm({
+            title: ad.title || '',
+            description: ad.description || '',
+            price: ad.price != null ? String(ad.price) : '',
+            platformId:
+              typeof ad.platform === 'string'
+                ? ad.platform
+                : ad.platform?._id || ad.platform?.id || '',
+            durationValue: ad.duration?.value != null ? String(ad.duration.value) : '',
+            durationUnit: ad.duration?.unit || TIME_UNITS[0].value,
+          })
+          return
+        }
+
+        const response = await fetch(`${API_BASE_URL}/users/ads/${encodeURIComponent(selectedAdId)}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        if (!response.ok) {
+          const message = await response.text()
+          throw new Error(message || 'Unable to load ad')
+        }
+        const payload = await response.json()
+        const ad = payload?.data || payload?.ad || payload
+        if (!ignore && ad) {
+          setForm({
+            title: ad.title || '',
+            description: ad.description || '',
+            price: ad.price != null ? String(ad.price) : '',
+            platformId:
+              typeof ad.platform === 'string'
+                ? ad.platform
+                : ad.platform?._id || ad.platform?.id || '',
+            durationValue: ad.duration?.value != null ? String(ad.duration.value) : '',
+            durationUnit: ad.duration?.unit || TIME_UNITS[0].value,
+          })
+        }
+      } catch (err) {
+        if (!ignore) {
+          const message = err instanceof Error ? err.message : 'Unable to load ad'
+          setError(message)
+        }
+      }
+    }
+
+    loadAdForEdit()
+    return () => {
+      ignore = true
+    }
+  }, [selectedAdId, token, adFromState])
+
   function handleChange(
     event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>,
   ) {
@@ -82,9 +147,6 @@ export default function PostAd() {
       ...prev,
       [name]: value,
     }))
-    if (name === 'contactEmail' && typeof window !== 'undefined') {
-      window.localStorage.setItem('accounts:lastContactEmail', value)
-    }
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -107,10 +169,10 @@ export default function PostAd() {
       return
     }
 
+    // Shape payload for both create and update
     const payload = {
       title: form.title,
       description: form.description,
-      contactEmail: form.contactEmail,
       price: Number(form.price),
       platform: form.platformId,
       duration: {
@@ -119,13 +181,17 @@ export default function PostAd() {
       },
     }
 
-    console.log("Submitting ad payload:", payload);
     setSubmitting(true)
     try {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' }
       if (token) headers.Authorization = `Bearer ${token}`
-      const response = await fetch('http://localhost:5000/users/postAd', {
-        method: 'POST',
+      const endpoint = isEditing
+        ? `${API_BASE_URL}/users/ads/${encodeURIComponent(selectedAdId)}`
+        : `${API_BASE_URL}/users/postAd`
+      const method = isEditing ? 'PUT' : 'POST'
+
+      const response = await fetch(endpoint, {
+        method,
         headers,
         body: JSON.stringify(payload),
       })
@@ -134,15 +200,20 @@ export default function PostAd() {
         throw new Error(message || 'Unable to submit ad')
       }
       await response.json().catch(() => ({}))
-      setSuccess('Ad submitted! We will review it shortly.')
-      setForm((prev) => ({
-        ...prev,
-        title: '',
-        description: '',
-        price: '',
-        durationValue: '',
-        platformId: '',
-      }))
+      setSuccess(isEditing ? 'Ad updated successfully.' : 'Ad submitted! We will review it shortly.')
+      if (!isEditing) {
+        setForm((prev) => ({
+          ...prev,
+          title: '',
+          description: '',
+          price: '',
+          durationValue: '',
+          platformId: '',
+        }))
+
+      } else {
+        navigate('/ads')
+      }
     } catch (apiError) {
       setError(apiError instanceof Error ? apiError.message : 'Submission failed')
     } finally {
@@ -154,8 +225,8 @@ export default function PostAd() {
     <section className="post-ad-page">
       <div className="post-ad-shell">
         <header className="post-ad-hero">
-          <p className="post-ad-pill">Create</p>
-          <h1>Post an ad</h1>
+          <p className="post-ad-pill">{isEditing ? 'Edit' : 'Create'}</p>
+          <h1>{isEditing ? 'Edit your ad' : 'Post an ad'}</h1>
           <p>Share your latest listing with the Nextpage community in just a few clicks.</p>
         </header>
 
@@ -183,17 +254,6 @@ export default function PostAd() {
             />
           </label>
           <label>
-            Contact email
-            <input
-              name="contactEmail"
-              type="email"
-              placeholder="you@company.com"
-              value={form.contactEmail}
-              onChange={handleChange}
-              required
-            />
-          </label>
-          <label>
             Price
             <input
               name="price"
@@ -206,14 +266,15 @@ export default function PostAd() {
               required
             />
           </label>
-          <label>
-            Platform
-            <select
-              name="platformId"
-              value={form.platformId}
-              onChange={handleChange}
-              required
-              disabled={platformLoading || platforms.length === 0}
+            <label>
+              Platform
+              <select
+              className="input-select"
+                name="platformId"
+                value={form.platformId}
+                onChange={handleChange}
+                required
+                disabled={platformLoading || platforms.length === 0}
             >
               <option value="">
                 {platformLoading ? 'Loading platforms...' : 'Select platform'}
@@ -243,6 +304,7 @@ export default function PostAd() {
                 name="durationUnit"
                 value={form.durationUnit}
                 onChange={handleChange}
+              className="input-select"
               >
                 {TIME_UNITS.map((unit) => (
                   <option key={unit.value} value={unit.value}>

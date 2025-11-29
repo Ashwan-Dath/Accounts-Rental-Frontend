@@ -10,7 +10,7 @@ export default function PublicLayout() {
           <main className="public-layout__main">
             <Outlet />
           </main>
-      <Footer />
+      {/* <Footer /> */}
     </div>
   )
 }

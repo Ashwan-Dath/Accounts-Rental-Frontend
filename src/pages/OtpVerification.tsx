@@ -2,7 +2,8 @@ import React, { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useUserAuth } from '../context/AuthContext'
 
-const OTP_LENGTH = 6
+const OTP_LENGTH = 4
+const API_BASE_URL = import.meta.env?.VITE_API_BASE_URL ?? 'http://localhost:5000'
 
 type LocationState = {
   email?: string
@@ -13,18 +14,18 @@ type LocationState = {
 export default function OtpVerification() {
   const location = useLocation()
   const navigate = useNavigate()
-  const { login, pendingEmail } = useUserAuth()
+  const { login, pendingEmail, setPendingEmail } = useUserAuth()
   const locationState = (location.state as LocationState) || {}
   const { mobile = '', name = 'New user' } = locationState
   const email = pendingEmail || locationState.email || ''
-  const [otp, setOtp] = useState<string[]>(Array(OTP_LENGTH).fill(''))
+  const [otpValue, setOtpValue] = useState<string>('')
   const [error, setError] = useState<string | null>(null)
   const [status, setStatus] = useState<string>('Enter the verification code we sent')
   const [loading, setLoading] = useState(false)
-  const inputsRef = useRef<Array<HTMLInputElement | null>>([])
+  const inputRef = useRef<HTMLInputElement | null>(null)
 
   useEffect(() => {
-    inputsRef.current[0]?.focus()
+    inputRef.current?.focus()
   }, [])
 
   if (!email && !mobile) {
@@ -41,40 +42,16 @@ export default function OtpVerification() {
     )
   }
 
-  const handleChange = (index: number, value: string) => {
-    const sanitized = value.replace(/\D/g, '')
-    if (!sanitized) {
-      setOtp((prev) => {
-        const next = [...prev]
-        next[index] = ''
-        return next
-      })
-      return
-    }
-
-    const nextDigit = sanitized[0]
-    setOtp((prev) => {
-      const next = [...prev]
-      next[index] = nextDigit
-      return next
-    })
-
-    if (index < OTP_LENGTH - 1) {
-      inputsRef.current[index + 1]?.focus()
-    }
-  }
-
-  const handleKeyDown = (index: number, event: React.KeyboardEvent<HTMLInputElement>) => {
-    if (event.key === 'Backspace' && !otp[index] && index > 0) {
-      inputsRef.current[index - 1]?.focus()
-    }
+  const handleChange = (value: string) => {
+    const sanitized = value.replace(/\D/g, '').slice(0, OTP_LENGTH)
+    setOtpValue(sanitized)
   }
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (loading) return
 
-    const code = otp.join('')
+    const code = otpValue
     if (code.length !== OTP_LENGTH) {
       setError(`Please enter the ${OTP_LENGTH}-digit code`)
       return
@@ -85,37 +62,69 @@ export default function OtpVerification() {
     setStatus('Verifying...')
 
     try {
-      const response = await fetch('http://localhost:5000/users/verify-otp', {
+      const response = await fetch(`${API_BASE_URL}/api/auth/verifyOtp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, mobile, otp: code }),
       })
 
       if (!response.ok) {
-        const message = await response.text()
-        throw new Error(message || 'Invalid code')
+        let payload: any = {}
+        try {
+          payload = await response.json()
+        } catch {
+          const message = await response.text()
+          throw new Error(message || 'Enter a valid OTP')
+        }
+        const friendly =
+          payload?.message ||
+          payload?.error ||
+          payload?.reason ||
+          (response.status === 400 ? 'Enter a valid OTP' : 'Verification failed')
+        throw new Error(friendly)
       }
 
       const result = await response.json().catch(() => ({}))
       login({
-        name: result?.name || name,
+        name:
+          result?.name ||
+          result?.user?.firstName ||
+          result?.data?.firstName ||
+          name,
         token: result?.token,
       })
+      setPendingEmail(null)
       setStatus('Verified! Redirecting...')
       setTimeout(() => navigate('/', { replace: true }), 600)
     } catch (apiError) {
-      setError(apiError instanceof Error ? apiError.message : 'Verification failed')
+      setError(apiError instanceof Error ? apiError.message : 'Enter a valid OTP')
       setStatus('Enter the verification code we sent')
     } finally {
       setLoading(false)
     }
   }
 
-  function resendCode() {
+  async function resendCode() {
+    setLoading(true)
+    setError(null)
     setStatus('Sending a new code…')
-    setTimeout(() => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/auth/resendOtp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      })
+      if (!response.ok) {
+        const message = await response.text()
+        throw new Error(message || 'Unable to resend code')
+      }
       setStatus('We sent a new code. Check your messages.')
-    }, 1000)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to resend code')
+      setStatus('Enter the verification code we sent')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -131,22 +140,18 @@ export default function OtpVerification() {
         </div>
 
         <form className="otp-form" onSubmit={handleSubmit}>
-          <div className="otp-inputs">
-            {otp.map((digit, index) => (
-              <input
-                key={index}
-                type="text"
-                inputMode="numeric"
-                maxLength={1}
-                value={digit}
-                onChange={(event) => handleChange(index, event.target.value)}
-                onKeyDown={(event) => handleKeyDown(index, event)}
-                ref={(el) => {
-                  inputsRef.current[index] = el
-                }}
-                aria-label={`OTP digit ${index + 1}`}
-              />
-            ))}
+          <div className="otp-inputs otp-inputs--single">
+            <input
+              type="text"
+              inputMode="numeric"
+              maxLength={OTP_LENGTH}
+              value={otpValue}
+              onChange={(event) => handleChange(event.target.value)}
+              ref={inputRef}
+              aria-label="OTP code"
+              className="otp-single-input"
+              placeholder="____"
+            />
           </div>
 
           {error && (
@@ -164,7 +169,12 @@ export default function OtpVerification() {
             <button type="submit" className="profile-primary-btn otp-submit" disabled={loading}>
               {loading ? 'Verifying…' : 'Verify & Continue'}
             </button>
-            <button type="button" className="profile-secondary-btn otp-resend-btn" onClick={resendCode} disabled={loading}>
+            <button
+              type="button"
+              className="profile-secondary-btn otp-resend-btn"
+              onClick={resendCode}
+              disabled={loading}
+            >
               Resend code
             </button>
           </div>

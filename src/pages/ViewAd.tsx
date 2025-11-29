@@ -6,6 +6,7 @@ import {
   formatPlatform,
   formatPrice,
   resolvePlatformImage,
+  WHITE_PLACEHOLDER,
 } from '../utils/adPresentation'
 import { useUserAuth } from '../context/AuthContext'
 
@@ -241,7 +242,14 @@ export default function ViewAd() {
               className={`view-ad-card__media${platformImage ? ' view-ad-card__media--logo' : ''}`}
             >
               {platformImage ? (
-                <img src={platformImage} alt={`${formatPlatform(ad.platform)} logo`} />
+                <img
+                  src={platformImage}
+                  alt={`${formatPlatform(ad.platform)} logo`}
+                  onError={(e) => {
+                    e.currentTarget.onerror = null
+                    e.currentTarget.src = WHITE_PLACEHOLDER
+                  }}
+                />
               ) : (
                 <span className="view-ad-card__media-text">{formatPlatform(ad.platform)}</span>
               )}

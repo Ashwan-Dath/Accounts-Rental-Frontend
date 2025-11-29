@@ -6,9 +6,9 @@ import { useUserAuth } from '../../context/AuthContext'
 const tabs = [
   { id: 'profile', label: 'Profile', icon: FiUser, path: '/profile' },
   { id: 'ads', label: 'Ads', icon: FiFileText, path: '/ads' },
-  { id: 'rentals', label: 'Rentals', icon: FiEye, path: '/rentals' },
-  { id: 'subscriptions', label: 'My Subscriptions', icon: FiStar, path: '/my-subscriptions' },
-  { id: 'gifts', label: 'Selected Gifts', icon: FiGift, path: '/gifts' },
+  // { id: 'rentals', label: 'Rentals', icon: FiEye, path: '/rentals' },
+  // { id: 'subscriptions', label: 'My Subscriptions', icon: FiStar, path: '/my-subscriptions' },
+  // { id: 'gifts', label: 'Selected Gifts', icon: FiGift, path: '/gifts' },
 ]
 
 type ProfileShellProps = {

@@ -12,7 +12,7 @@ export default function AdminLayout() {
           <Outlet />
         </div>
       </main>
-      <Footer />
+      {/* <Footer /> */}
     </div>
   )
 }
