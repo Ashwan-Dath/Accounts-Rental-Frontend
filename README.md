@@ -7,7 +7,6 @@ Getting started
 1. Install dependencies
 
 ```bash
-cd /home/nextpage/Desktop/AccountsFrontend
 npm install
 ```
 
