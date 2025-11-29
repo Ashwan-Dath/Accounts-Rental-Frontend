@@ -1,7 +1,13 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import type { PublicAd } from '../types/ad'
-import { formatDuration, formatPlatform, formatPrice, resolvePlatformImage } from '../utils/adPresentation'
+import {
+  formatDuration,
+  formatPlatform,
+  formatPrice,
+  resolvePlatformImage,
+  WHITE_PLACEHOLDER,
+} from '../utils/adPresentation'
 
 export default function Listing() {
   const { search } = useLocation()
@@ -17,7 +23,10 @@ export default function Listing() {
       setLoading(true)
       setError(null)
       try {
-        const response = await fetch('http://localhost:5000/public/allAds')
+        const url = query
+          ? `http://localhost:5000/public/allAds?query=${encodeURIComponent(query)}`
+          : 'http://localhost:5000/public/allAds'
+        const response = await fetch(url)
         if (!response.ok) {
           const message = await response.text()
           throw new Error(message || 'Unable to load ads')
@@ -45,7 +54,7 @@ export default function Listing() {
     return () => {
       ignore = true
     }
-  }, [])
+  }, [query])
   
   const filteredAds = useMemo(() => {
     if (!query) return ads
@@ -85,7 +94,14 @@ export default function Listing() {
                     }`}
                   >
                     {platformImage && (
-                      <img src={platformImage} alt={`${formatPlatform(ad.platform)} logo`} />
+                      <img
+                        src={platformImage}
+                        alt={`${formatPlatform(ad.platform)} logo`}
+                        onError={(e) => {
+                          e.currentTarget.onerror = null
+                          e.currentTarget.src = WHITE_PLACEHOLDER
+                        }}
+                      />
                     )}
                   </div>
                   <p className="listing-card__eyebrow">{formatPlatform(ad.platform)}</p>

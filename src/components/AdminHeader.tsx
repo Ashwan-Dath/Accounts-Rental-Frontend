@@ -8,7 +8,7 @@ const navItems = [
   { to: '/admin/users', label: 'Users' },
   { to: '/admin/categories', label: 'Categories' },
   { to: '/admin/ads', label: 'Ads' },
-  { to: '/admin/profile', label: 'Profile' },
+  // { to: '/admin/profile', label: 'Profile' },
 ]
 
 function AdminHeaderInner() {

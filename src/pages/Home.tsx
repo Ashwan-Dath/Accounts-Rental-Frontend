@@ -7,6 +7,7 @@ import {
   formatPlatform,
   formatPrice,
   resolvePlatformImage,
+  WHITE_PLACEHOLDER,
 } from '../utils/adPresentation'
 
 const API_BASE_URL = import.meta.env?.VITE_API_BASE_URL ?? 'http://localhost:5000'
@@ -106,16 +107,6 @@ function pickAdsFromPayload(payload: unknown, responseKey?: string): PublicAd[] 
   return []
 }
 
-const categories = [
-  { title: 'Desks & setups', description: 'Standing, corner, modular' },
-  { title: 'Audio & calls', description: 'Headsets, mics, speakers' },
-  { title: 'Charging', description: 'USB-C PD, hubs, docks' },
-  { title: 'Lighting', description: 'Ambient, task, strips' },
-  { title: 'Travel', description: 'Stands, sleeves, chargers' },
-  { title: 'Ergo', description: 'Chairs, footrests, arms' },
-  { title: 'Decor', description: 'Plants, shelves, rugs' },
-  { title: 'Cables & power', description: 'USB-C, HDMI, surge' },
-]
 
 export default function Home() {
   const navigate = useNavigate()
@@ -184,11 +175,12 @@ export default function Home() {
         <div className="home-inner">
           <section className="home-hero">
             <div className="home-hero-copy">
-              <span>Workspace rentals</span>
-              <h1>Curated gear for teams on the move.</h1>
+              <span>Ad placements</span>
+              <h1>Curated ad slots across the platforms that matter.</h1>
               <p>
-                Outfit hybrid teams with premium desks, lighting, and accessories. Deliveries happen
-                same week, swaps are on-demand, and everything stays synced to your account.
+                Find vetted inventory on YouTube, Netflix, Hotstar, and more. Compare formats,
+                durations, and rates, then book your campaign in a few clicks with everything synced
+                to your account.
               </p>
               <div className="hero-actions">
                 <Link to="/signup" className="hero-btn primary">
@@ -210,7 +202,7 @@ export default function Home() {
             </div>
           </section>
 
-          <section className="home-categories">
+          {/* <section className="home-categories">
             <div className="home-categories-header">
               <strong>Explore by category</strong>
               <span>Pick a lane to filter faster</span>
@@ -223,7 +215,7 @@ export default function Home() {
                 </article>
               ))}
             </div>
-          </section>
+          </section> */}
 
           {AD_SECTIONS.map((section) => {
             const sectionState = sections[section.key]
@@ -259,7 +251,14 @@ export default function Home() {
                             }`}
                           >
                             {logo ? (
-                              <img src={logo} alt={`${platformLabel} logo`} />
+                              <img
+                                src={logo}
+                                alt={`${platformLabel} logo`}
+                                onError={(e) => {
+                                  e.currentTarget.onerror = null
+                                  e.currentTarget.src = WHITE_PLACEHOLDER
+                                }}
+                              />
                             ) : (
                               <span>{platformLabel.slice(0, 1) || '?'}</span>
                             )}
@@ -294,11 +293,14 @@ export default function Home() {
 
           <section className="home-cta">
             <div className="cta-content">
-              <h3>Ready to build your cart?</h3>
+              <h3>Ready to Rent an Account?</h3>
               <p>
+                Want to rent an account? Log in or create an account — the option is right next to you.
+              </p>
+              {/* <p>
                 Login or create an account to sync carts across devices and unlock concierge support
                 for office moves.
-              </p>
+              </p> */}
             </div>
             <div className="cta-actions">
               <Link to="/signup" className="hero-btn primary">
@@ -310,7 +312,7 @@ export default function Home() {
             </div>
           </section>
 
-          <section className="home-footer">
+          {/* <section className="home-footer">
             <div>
               <h5>Nextpage</h5>
               <p>Gear that keeps up with your ambition.</p>
@@ -338,7 +340,7 @@ export default function Home() {
               <p>+1 202 555 0148</p>
               <p>Live chat</p>
             </div>
-          </section>
+          </section> */}
         </div>
       </div>
     </div>

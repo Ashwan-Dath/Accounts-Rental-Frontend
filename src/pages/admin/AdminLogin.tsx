@@ -34,14 +34,22 @@ export default function AdminLogin() {
           password: form.password,
         }),
       })
+      let data: any = {}
       if (!response.ok) {
-        const message = await response.text()
-        throw new Error(message || 'Unable to login')
+        try {
+          data = await response.json()
+        } catch {
+          const message = await response.text()
+          throw new Error(message || 'Unable to login')
+        }
+        const friendly =
+          data?.message ||
+          data?.error ||
+          data?.reason ||
+          (response.status === 401 ? 'Invalid email or password' : 'Unable to login')
+        throw new Error(friendly)
       }
-      const data = await response
-        .json()
-        .catch(() => ({ name: 'Admin', token: '' }))
-        console.log("Login response data:", data);
+      data = await response.json().catch(() => ({ name: 'Admin', token: '' }))
       const tokenFromResponse =
         (data && (data.token)) ?? null
       if (!tokenFromResponse) throw new Error('Login succeeded but token is missing')
