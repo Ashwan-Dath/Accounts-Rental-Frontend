@@ -1,11 +1,4 @@
 # Accounts Frontend (React + TypeScript)
-## This is just seeing
-### What is going on here
-
-#### Whoo o
-
-`command` to run next to it
-
 
 This is a minimal Vite + React + TypeScript starter scaffold.
 
