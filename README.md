@@ -2,7 +2,7 @@
 
 This is a minimal Vite + React + TypeScript starter scaffold.
 
-Getting started
+## Getting started
 
 1. Install dependencies
 
@@ -16,20 +16,7 @@ npm install
 npm run dev
 ```
 
-3. Build for production
-
-```bash
-npm run build
-npm run preview
-```
-
-4. Type-check
-
-```bash
-npm run type-check
-```
-
-Files of interest
+## Files of interest
 
 - `package.json` — scripts and dependencies
 - `vite.config.ts` — Vite configuration
